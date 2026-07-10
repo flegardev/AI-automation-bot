@@ -24,7 +24,7 @@ html {
 
 body {
   margin: 0;
-  min-height: 100vh;
+  min-height: 100dvh;
   color: var(--ink);
   /* Self-hosted layered gradient (no external image fetch) keeps the warm,
      textured backdrop while staying reliable offline and privacy-safe. */
@@ -62,7 +62,7 @@ a {
 .chat-shell,
 .admin-shell {
   width: min(1220px, calc(100% - 32px));
-  min-height: 100vh;
+  min-height: 100dvh;
   margin: 0 auto;
   display: grid;
   align-items: center;
@@ -71,7 +71,7 @@ a {
 
 .chat-workspace,
 .admin-workspace {
-  min-height: min(780px, calc(100vh - 56px));
+  min-height: min(780px, calc(100dvh - 56px));
   display: grid;
   overflow: hidden;
   border: 1px solid rgba(221, 216, 207, 0.9);
@@ -161,17 +161,19 @@ h3 {
 }
 
 .product-item {
-  min-height: 66px;
+  min-height: 82px;
   padding: 12px;
   display: grid;
-  gap: 4px;
+  align-content: start;
+  gap: 5px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.06);
 }
 
 .product-item strong,
-.product-item span {
+.product-item span,
+.product-item small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -180,6 +182,43 @@ h3 {
 .product-item span {
   color: #e6c78d;
   font-weight: 800;
+}
+
+.product-item small {
+  color: #d8d1c3;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.store-meta {
+  margin: 0;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.store-meta dt {
+  color: #e6c78d;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.store-meta dd {
+  min-width: 0;
+  margin: 0;
+  margin-bottom: 8px;
+  color: #f4eee2;
+  line-height: 1.35;
+  overflow-wrap: break-word;
+}
+
+.store-meta dd:last-child {
+  margin-bottom: 0;
 }
 
 .admin-link {
@@ -282,6 +321,15 @@ a:focus-visible {
   border-color: var(--teal);
 }
 
+.quick-actions button:active,
+.secondary-button:active,
+.send-button:active,
+.admin-link:active,
+.admin-actions a:active,
+.admin-actions button:active {
+  transform: translateY(1px);
+}
+
 .quick-actions button:disabled {
   cursor: wait;
   opacity: 0.62;
@@ -299,9 +347,24 @@ a:focus-visible {
 .empty-state {
   margin: auto;
   max-width: 460px;
+  padding: 22px;
+  display: grid;
+  gap: 8px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: #fff;
   color: var(--muted);
   text-align: center;
   line-height: 1.55;
+}
+
+.empty-state strong {
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.empty-state span {
+  display: block;
 }
 
 .message {
@@ -575,6 +638,18 @@ textarea:disabled {
   min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+}
+
+.section-heading {
+  display: grid;
+  gap: 3px;
+}
+
+.section-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .list-panel,
@@ -593,10 +668,17 @@ textarea:disabled {
 .conversation-item {
   padding: 14px;
   border-bottom: 1px solid var(--line);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
 }
 
 .conversation-item:last-child {
   border-bottom: 0;
+}
+
+.conversation-item:hover {
+  background: #fbfaf6;
 }
 
 .conversation-item strong,
@@ -646,6 +728,8 @@ td span {
 
 select {
   min-height: 36px;
+  max-width: 140px;
+  padding: 0 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--paper);
@@ -658,8 +742,37 @@ select {
   color: var(--muted);
 }
 
+.empty-admin strong,
+.empty-admin span {
+  display: block;
+}
+
+.empty-admin strong {
+  margin-bottom: 4px;
+  color: var(--ink);
+}
+
+.site-credit {
+  padding: 14px 0 8px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  color: #766f63;
+  font-size: 0.75rem;
+}
+
+.site-credit a {
+  color: var(--teal-strong);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.site-credit a:hover {
+  text-decoration: underline;
+}
+
 .not-found-shell {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: 24px;
@@ -689,7 +802,7 @@ select {
 
   .chat-workspace,
   .admin-workspace {
-    min-height: calc(100vh - 20px);
+    min-height: calc(100dvh - 20px);
   }
 
   .chat-workspace,
@@ -707,6 +820,7 @@ select {
   }
 
   .product-list,
+  .store-meta,
   .admin-link {
     grid-column: 1 / -1;
   }

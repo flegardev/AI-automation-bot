@@ -91,9 +91,13 @@ function renderConversations(conversations = []) {
   conversationList.innerHTML = "";
 
   if (conversations.length === 0) {
-    const empty = document.createElement("p");
+    const empty = document.createElement("article");
     empty.className = "empty-admin";
-    empty.textContent = "No conversations yet.";
+    const title = document.createElement("strong");
+    title.textContent = "No conversations yet";
+    const copy = document.createElement("span");
+    copy.textContent = "Send a message in the chat workspace to populate this panel.";
+    empty.append(title, copy);
     conversationList.append(empty);
     return;
   }
@@ -106,7 +110,7 @@ function renderConversations(conversations = []) {
     title.textContent = conversation.customerName || "Unknown customer";
 
     const meta = document.createElement("span");
-    meta.textContent = `${conversation.requestType} | ${conversation.status} | ${conversation.messageCount} messages`;
+    meta.textContent = `${conversation.requestType} / ${conversation.status} / ${conversation.messageCount} messages`;
 
     const latest = document.createElement("span");
     latest.textContent = conversation.latestMessage || "No message preview";
@@ -165,7 +169,11 @@ function renderLeads(leads = []) {
     const cell = document.createElement("td");
     cell.className = "empty-admin";
     cell.colSpan = 4;
-    cell.textContent = "No leads captured yet.";
+    const title = document.createElement("strong");
+    title.textContent = "No leads captured yet";
+    const copy = document.createElement("span");
+    copy.textContent = "Customer requests with buying or order intent will appear here.";
+    cell.append(title, copy);
     row.append(cell);
     leadTableBody.append(row);
     return;

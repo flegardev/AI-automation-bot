@@ -44,14 +44,20 @@
 
         <section class="admin-content">
           <section class="admin-section" aria-label="Conversations">
-            <h2>Conversations</h2>
+            <div class="section-heading">
+              <h2>Conversations</h2>
+              <p>Recent customer threads and lead status.</p>
+            </div>
             <div class="list-panel">
               <div class="conversation-list" id="conversationList"></div>
             </div>
           </section>
 
           <section class="admin-section" aria-label="Leads">
-            <h2>Leads</h2>
+            <div class="section-heading">
+              <h2>Leads</h2>
+              <p>Contact details, request context, and follow-up state.</p>
+            </div>
             <div class="table-wrap">
               <table>
                 <thead>
@@ -71,15 +77,11 @@
     </main>
 
     <script src="/admin.js" type="module"></script>
-    <footer style="text-align: center; padding: 16px 0 8px; font-size: 11px; color: #888">
-      Made by FlegarTech &mdash;
-      <a
-        href="https://paypal.me/TiniFlegar"
-        target="_blank"
-        rel="noopener noreferrer"
-        style="color: #888"
-        >Support development</a
-      >
+    <footer class="site-credit">
+      <span>Made by FlegarTech</span>
+      <a href="https://paypal.me/TiniFlegar" target="_blank" rel="noopener noreferrer">
+        Support development
+      </a>
     </footer>
   </body>
 </html>

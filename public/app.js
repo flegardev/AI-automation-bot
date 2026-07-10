@@ -13,6 +13,7 @@ const businessName = document.querySelector("#businessName");
 const businessDescription = document.querySelector("#businessDescription");
 const chatTitle = document.querySelector("#chatTitle");
 const productList = document.querySelector("#productList");
+const storeMeta = document.querySelector("#storeMeta");
 const leadStatus = document.querySelector("#leadStatus");
 const quickActionButtons = document.querySelectorAll("[data-prompt]");
 
@@ -62,6 +63,14 @@ function setSendingState(sending) {
 function renderProducts(products = []) {
   productList.innerHTML = "";
 
+  if (products.length === 0) {
+    const item = document.createElement("article");
+    item.className = "product-item";
+    item.textContent = "No featured products configured yet.";
+    productList.append(item);
+    return;
+  }
+
   for (const product of products.slice(0, 4)) {
     const item = document.createElement("article");
     item.className = "product-item";
@@ -69,11 +78,34 @@ function renderProducts(products = []) {
     const name = document.createElement("strong");
     name.textContent = product.name;
 
-    const price = document.createElement("span");
-    price.textContent = product.price || "Price pending";
+    const details = document.createElement("span");
+    details.textContent = [product.price || "Price pending", product.status]
+      .filter(Boolean)
+      .join(" / ");
 
-    item.append(name, price);
+    const description = document.createElement("small");
+    description.textContent = product.description || "Product detail pending.";
+
+    item.append(name, details, description);
     productList.append(item);
+  }
+}
+
+function renderStoreMeta(config = {}) {
+  storeMeta.innerHTML = "";
+
+  const items = [
+    ["Hours", config.openingHours],
+    ["Location", config.location],
+    ["Email", config.contact?.email],
+  ].filter(([, value]) => value);
+
+  for (const [label, value] of items) {
+    const term = document.createElement("dt");
+    term.textContent = label;
+    const description = document.createElement("dd");
+    description.textContent = value;
+    storeMeta.append(term, description);
   }
 }
 
@@ -105,9 +137,13 @@ function renderMessages() {
   messagesEl.innerHTML = "";
 
   if (messages.length === 0 && !isTyping) {
-    const empty = document.createElement("p");
+    const empty = document.createElement("article");
     empty.className = "empty-state";
-    empty.textContent = "Ask about a product, order, delivery, return, or availability.";
+    const title = document.createElement("strong");
+    title.textContent = "Ready for a customer question";
+    const copy = document.createElement("span");
+    copy.textContent = "Ask about a product, order, delivery, return, or availability.";
+    empty.append(title, copy);
     messagesEl.append(empty);
     updateStats();
     return;
@@ -145,6 +181,7 @@ async function loadConfig() {
   businessDescription.textContent =
     config.businessDescription || "Product questions, order help, and request collection.";
   renderProducts(config.products || []);
+  renderStoreMeta(config);
 }
 
 async function loadHealth() {
@@ -166,6 +203,8 @@ async function loadSavedMessages() {
     messages = Array.isArray(data.messages)
       ? data.messages.map(({ role, content }) => ({ role, content }))
       : [];
+    leadCaptured = Boolean(data.lead);
+    leadStatus.textContent = leadCaptured ? "Lead saved" : "No lead yet";
     renderMessages();
   } catch {
     renderMessages();

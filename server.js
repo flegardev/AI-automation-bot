@@ -472,13 +472,22 @@ app.get("/api/config", async (req, res) => {
 
 app.get("/api/messages", async (req, res) => {
   const sessionId = cleanText(req.query.sessionId);
-  const allMessages = await readJson(messageStorePath, []);
+  const [allMessages, allLeads] = await Promise.all([
+    readJson(messageStorePath, []),
+    sessionId ? readJson(leadStorePath, []) : Promise.resolve([]),
+  ]);
   const filtered = sessionId
     ? allMessages.filter((message) => message.sessionId === sessionId)
     : allMessages.slice(-100);
+  const lead = sessionId
+    ? allLeads
+        .filter((item) => item.sessionId === sessionId && item.status !== "cancelled")
+        .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0] || null
+    : null;
 
   res.json({
     messages: filtered.slice(-50),
+    lead,
   });
 });
 
