@@ -7,14 +7,19 @@ const completedLeadStat = document.querySelector("#completedLeadStat");
 const conversationList = document.querySelector("#conversationList");
 const leadTableBody = document.querySelector("#leadTableBody");
 const adminAlert = document.querySelector("#adminAlert");
+const adminAuthPanel = document.querySelector("#adminAuthPanel");
+const adminLoginForm = document.querySelector("#adminLoginForm");
+const adminTokenInput = document.querySelector("#adminTokenInput");
+const adminLoginStatus = document.querySelector("#adminLoginStatus");
+const statsGrid = document.querySelector("#statsGrid");
+const adminContent = document.querySelector("#adminContent");
+const logoutButton = document.querySelector("#logoutButton");
 
 const statuses = ["new", "contacted", "completed", "cancelled"];
 
 // --- Admin auth ---
-// /api/admin/* is protected by ADMIN_TOKEN in production. The dashboard accepts
-// the token via a `?token=...` URL param (captured once, then stripped from the
-// URL so it is not left in history/bookmarks) or by prompting on first 401.
-// The token is kept in sessionStorage so it clears when the tab closes.
+// /api/admin/* accepts ADMIN_TOKEN only in an Authorization header. The token is
+// kept in sessionStorage so it never enters the URL and clears with the tab.
 const tokenKey = "ai-commerce-admin-token";
 
 function getToken() {
@@ -29,39 +34,35 @@ function setToken(token) {
   }
 }
 
-(function captureTokenFromUrl() {
-  const params = new URLSearchParams(window.location.search);
-  const urlToken = params.get("token");
-  if (urlToken) {
-    setToken(urlToken.trim());
-    params.delete("token");
-    const query = params.toString();
-    window.history.replaceState(null, "", window.location.pathname + (query ? `?${query}` : ""));
-  }
-})();
-
 function authHeaders(extra = {}) {
   const token = getToken();
   return token ? { ...extra, Authorization: `Bearer ${token}` } : { ...extra };
 }
 
-// Fetch an admin endpoint with the stored token; on 401, prompt once for the
-// token and retry. Returns the final Response.
 async function adminFetch(url, options = {}) {
-  let response = await fetch(url, { ...options, headers: authHeaders(options.headers) });
-
+  const response = await fetch(url, { ...options, headers: authHeaders(options.headers) });
   if (response.status === 401) {
-    const entered = window.prompt("Admin token required. Paste your ADMIN_TOKEN to continue:");
-    if (entered && entered.trim()) {
-      setToken(entered.trim());
-      response = await fetch(url, { ...options, headers: authHeaders(options.headers) });
-    }
-    if (response.status === 401) {
-      setToken("");
-    }
+    setToken("");
+    setDashboardVisibility(false);
+    setLoginStatus("That token was not accepted. Check ADMIN_TOKEN and try again.");
   }
-
   return response;
+}
+
+function setLoginStatus(message = "") {
+  adminLoginStatus.textContent = message;
+}
+
+function setDashboardVisibility(unlocked) {
+  adminAuthPanel.hidden = unlocked;
+  statsGrid.hidden = !unlocked;
+  adminContent.hidden = !unlocked;
+  logoutButton.hidden = !unlocked;
+  refreshButton.disabled = !unlocked;
+
+  if (!unlocked) {
+    adminTokenInput.focus();
+  }
 }
 
 function formatDate(value) {
@@ -125,6 +126,7 @@ function renderConversations(conversations = []) {
 
 function createStatusSelect(lead) {
   const select = document.createElement("select");
+  select.setAttribute("aria-label", `Status for ${lead.customerName || "unknown customer"}`);
 
   for (const status of statuses) {
     const option = document.createElement("option");
@@ -213,6 +215,12 @@ function renderLeads(leads = []) {
 }
 
 async function loadDashboard() {
+  if (!getToken()) {
+    setDashboardVisibility(false);
+    setLoginStatus("Enter ADMIN_TOKEN to unlock customer data.");
+    return false;
+  }
+
   refreshButton.disabled = true;
 
   try {
@@ -221,10 +229,7 @@ async function loadDashboard() {
     const data = await response.json().catch(() => ({}));
 
     if (response.status === 401) {
-      throw new Error(
-        data.error ||
-          "Unauthorized. Add ?token=YOUR_ADMIN_TOKEN to the URL or enter it when prompted."
-      );
+      return false;
     }
 
     if (!response.ok) {
@@ -235,13 +240,46 @@ async function loadDashboard() {
     setStats(data.stats);
     renderConversations(data.conversations);
     renderLeads(data.leads);
+    setDashboardVisibility(true);
+    setLoginStatus();
+    return true;
   } catch (error) {
     setAdminAlert(error.message);
+    return false;
   } finally {
-    refreshButton.disabled = false;
+    refreshButton.disabled = !getToken();
   }
 }
 
 refreshButton.addEventListener("click", loadDashboard);
+
+adminLoginForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const token = adminTokenInput.value.trim();
+
+  if (!token) {
+    setLoginStatus("Enter the configured admin token.");
+    adminTokenInput.focus();
+    return;
+  }
+
+  setToken(token);
+  setLoginStatus("Checking token…");
+  const unlocked = await loadDashboard();
+
+  if (unlocked) {
+    adminLoginForm.reset();
+  }
+});
+
+logoutButton.addEventListener("click", () => {
+  setToken("");
+  setStats();
+  renderConversations();
+  renderLeads();
+  setAdminAlert();
+  setDashboardVisibility(false);
+  setLoginStatus("Dashboard locked. Enter ADMIN_TOKEN to continue.");
+});
 
 await loadDashboard();

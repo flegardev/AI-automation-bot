@@ -18,6 +18,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 html {
   min-width: 320px;
 }
@@ -45,6 +49,7 @@ body {
 }
 
 button,
+input,
 select,
 textarea {
   font: inherit;
@@ -556,6 +561,66 @@ textarea:disabled {
   grid-template-rows: auto auto minmax(0, 1fr);
 }
 
+.admin-auth-panel {
+  padding: 18px;
+  border-bottom: 1px solid var(--line);
+  background: #f7f3eb;
+}
+
+.admin-auth-form {
+  width: min(100%, 680px);
+  margin: 0 auto;
+  display: grid;
+  gap: 10px;
+}
+
+.admin-auth-form h2,
+.admin-auth-form p {
+  margin-bottom: 0;
+}
+
+.admin-auth-form label {
+  font-weight: 800;
+}
+
+.admin-auth-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.admin-auth-controls input,
+.admin-auth-controls button {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.admin-auth-controls input {
+  min-width: 0;
+  padding: 0 12px;
+  color: var(--ink);
+  background: #fff;
+}
+
+.admin-auth-controls input:focus-visible {
+  border-color: var(--teal);
+  outline: 3px solid rgba(11, 124, 117, 0.14);
+  outline-offset: 1px;
+}
+
+.admin-auth-controls button {
+  padding: 0 16px;
+  color: #fff;
+  background: var(--teal);
+  font-weight: 800;
+}
+
+#adminLoginStatus {
+  min-height: 1.4em;
+  color: var(--muted);
+}
+
 .admin-topbar {
   color: #f8f5ed;
   background: var(--night);
@@ -903,5 +968,20 @@ select {
 
   .stats-grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-auth-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

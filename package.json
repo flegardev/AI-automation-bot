@@ -1,7 +1,8 @@
 {
   "name": "ai-automation-bot",
   "version": "1.0.0",
-  "description": "Starter AI customer support chatbot with an Express backend and browser chat UI.",
+  "private": true,
+  "description": "Secure, configurable e-commerce support chatbot with lead capture and an Express admin dashboard.",
   "main": "server.js",
   "type": "module",
   "scripts": {
@@ -11,14 +12,31 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "playwright test",
-    "test:auth": "node --test tests/admin-auth.test.js"
+    "test:auth": "node --test tests/admin-auth.test.js",
+    "test:security": "node --test tests/admin-auth.test.js tests/session-auth.test.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "ai",
+    "customer-support",
+    "ecommerce",
+    "express",
+    "lead-management",
+    "openai"
+  ],
+  "author": "Tini Flegar <flegardev@gmail.com>",
+  "license": "UNLICENSED",
+  "homepage": "https://github.com/flegardev/ai-automation-bot#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/flegardev/ai-automation-bot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/flegardev/ai-automation-bot/issues"
+  },
   "dependencies": {
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "helmet": "^8.3.0",
     "openai": "^6.38.0"
   },
   "devDependencies": {

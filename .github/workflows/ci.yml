@@ -21,14 +21,19 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Dependency audit
+        run: npm audit --audit-level=high
       - name: Syntax check
-        run: node --check server.js
+        run: |
+          node --check server.js
+          node --check public/app.js
+          node --check public/admin.js
       - name: Lint
         run: npm run lint
       - name: Format check
         run: npm run format:check
-      - name: Admin auth tests (Node test runner)
-        run: npm run test:auth
+      - name: Security regression tests (Node test runner)
+        run: npm run test:security
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
       - name: Smoke tests (Playwright auto-starts the server)

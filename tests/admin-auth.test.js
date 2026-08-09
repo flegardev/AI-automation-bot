@@ -5,9 +5,8 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 // Regression coverage for the production admin-auth path: when ADMIN_TOKEN is
-// set, /api/admin/* must reject requests without a valid token (Bearer header
-// or ?token=) and accept those with it. The Playwright smoke suite runs in dev
-// mode (no token), so this guards the production behavior specifically.
+// set, /api/admin/* must reject requests without a valid Bearer token and must
+// reject URL credentials even when the token value is otherwise correct.
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const serverPath = path.join(__dirname, "..", "server.js");
@@ -72,9 +71,18 @@ test("admin summary is accepted with a Bearer token", async () => {
   assert.ok(body.stats, "summary should include stats");
 });
 
-test("admin summary is accepted with a ?token= query param", async () => {
+test("admin summary rejects tokens in the query string", async () => {
   const res = await fetch(`${base}/api/admin/summary?token=${encodeURIComponent(TOKEN)}`);
-  assert.equal(res.status, 200);
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error, /not accepted in URLs/i);
+});
+
+test("admin summary rejects a malformed authorization scheme", async () => {
+  const res = await fetch(`${base}/api/admin/summary`, {
+    headers: { Authorization: `Basic ${TOKEN}` },
+  });
+  assert.equal(res.status, 401);
 });
 
 test("lead PATCH is rejected without a token", async () => {

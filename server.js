@@ -1,6 +1,7 @@
 import "dotenv/config";
 import crypto from "node:crypto";
 import express from "express";
+import helmet from "helmet";
 import OpenAI from "openai";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -14,6 +15,11 @@ const isProduction = process.env.NODE_ENV === "production";
 const port = Number(process.env.PORT || 3000);
 const host = process.env.HOST || "0.0.0.0";
 const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+const requestedOpenAiTimeoutMs = Number(process.env.OPENAI_TIMEOUT_MS || 20_000);
+const openaiTimeoutMs =
+  Number.isInteger(requestedOpenAiTimeoutMs) && requestedOpenAiTimeoutMs >= 1_000
+    ? requestedOpenAiTimeoutMs
+    : 20_000;
 const apiKey = cleanText(process.env.OPENAI_API_KEY || "");
 const hasUsableOpenAIKey =
   apiKey && !["sk-your-key-here", "your_real_key_here", "your-key-here"].includes(apiKey);
@@ -37,17 +43,50 @@ const dataDir = process.env.DATA_DIR
 const configPath = path.join(__dirname, "config", "business.json");
 const messageStorePath = path.join(dataDir, "messages.json");
 const leadStorePath = path.join(dataDir, "leads.json");
+const sessionStorePath = path.join(dataDir, "sessions.json");
 let writeQueue = Promise.resolve();
 
-const openai = hasUsableOpenAIKey ? new OpenAI({ apiKey }) : null;
+const openai = hasUsableOpenAIKey
+  ? new OpenAI({ apiKey, timeout: openaiTimeoutMs, maxRetries: 2 })
+  : null;
 const adminToken = cleanText(process.env.ADMIN_TOKEN || "");
+const trustProxySetting = cleanText(process.env.TRUST_PROXY || "", 8);
+
+function getBearerToken(req) {
+  const header = req.get("authorization") || "";
+  const match = header.match(/^Bearer ([^\s]+)$/i);
+  return cleanText(match?.[1] || "", 4096);
+}
+
+function tokensMatch(candidate, expected) {
+  if (!candidate || !expected) {
+    return false;
+  }
+
+  const candidateDigest = crypto.createHash("sha256").update(candidate).digest();
+  const expectedDigest = crypto.createHash("sha256").update(expected).digest();
+  return crypto.timingSafeEqual(candidateDigest, expectedDigest);
+}
 
 function requireAdminToken(req, res, next) {
-  if (!adminToken) return next();
-  const bearer = req.headers.authorization?.replace("Bearer ", "");
-  const query = cleanText(req.query.token || "");
-  if (bearer === adminToken || query === adminToken) return next();
-  res.status(401).json({ error: "Unauthorized. Set Authorization: Bearer <ADMIN_TOKEN>." });
+  if (Object.hasOwn(req.query, "token")) {
+    return res.status(400).json({
+      error: "Admin tokens are not accepted in URLs. Use Authorization: Bearer <ADMIN_TOKEN>.",
+    });
+  }
+
+  if (!adminToken) {
+    return res.status(503).json({
+      error: "Admin access is disabled until ADMIN_TOKEN is configured.",
+    });
+  }
+
+  if (tokensMatch(getBearerToken(req), adminToken)) {
+    return next();
+  }
+
+  res.setHeader("WWW-Authenticate", 'Bearer realm="admin"');
+  return res.status(401).json({ error: "Unauthorized. Set Authorization: Bearer <ADMIN_TOKEN>." });
 }
 
 // --- Startup environment validation ---
@@ -63,6 +102,15 @@ function validateEnvironment() {
   if (isProduction && adminToken && adminToken.length < 16) {
     errors.push("ADMIN_TOKEN is too short for production (use >= 16 random characters).");
   }
+  if (
+    process.env.OPENAI_TIMEOUT_MS &&
+    (!Number.isInteger(requestedOpenAiTimeoutMs) || requestedOpenAiTimeoutMs < 1_000)
+  ) {
+    errors.push("OPENAI_TIMEOUT_MS must be an integer of at least 1000 milliseconds.");
+  }
+  if (trustProxySetting && !/^[1-9]\d?$/.test(trustProxySetting)) {
+    errors.push("TRUST_PROXY must be the explicit number of trusted proxy hops (1-99).");
+  }
   if (errors.length) {
     console.error("Environment validation failed:\n- " + errors.join("\n- "));
     process.exit(1);
@@ -71,25 +119,40 @@ function validateEnvironment() {
     console.warn("No usable OPENAI_API_KEY set — running in local-demo mode (scripted replies).");
   }
   if (!isProduction && !adminToken) {
-    console.warn("ADMIN_TOKEN not set — /api/admin/* is OPEN. Fine for local dev only.");
+    console.warn("ADMIN_TOKEN not set — /api/admin/* is disabled until one is configured.");
   }
 }
 validateEnvironment();
 
-// Trust the platform proxy (Railway/Render/Fly/Nginx) so req.ip is the real
-// client IP for rate limiting and not the proxy's address.
-if (isProduction || process.env.TRUST_PROXY) {
-  app.set("trust proxy", 1);
+// Trust only the explicitly configured number of proxy hops. An incorrect
+// setting lets callers spoof the client IP used by the rate limiter.
+if (trustProxySetting) {
+  app.set("trust proxy", Number(trustProxySetting));
 }
 
-// Minimal security headers (no external dependency).
-app.use((req, res, next) => {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "SAMEORIGIN");
-  res.setHeader("Referrer-Policy", "no-referrer");
-  res.setHeader("X-DNS-Prefetch-Control", "off");
-  next();
-});
+app.disable("x-powered-by");
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'none'"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+        imgSrc: ["'self'", "data:"],
+        objectSrc: ["'none'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'"],
+        upgradeInsecureRequests: isProduction ? [] : null,
+      },
+    },
+    referrerPolicy: { policy: "no-referrer" },
+    strictTransportSecurity: false,
+    xFrameOptions: { action: "deny" },
+  })
+);
 
 // CORS: only when an allowlist is configured; otherwise same-origin only.
 app.use((req, res, next) => {
@@ -135,8 +198,12 @@ const rateCleanup = setInterval(() => {
   }
 }, rateLimitWindowMs).unref();
 
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "32kb" }));
 app.use("/api", rateLimit("api", rateLimitMax));
+app.use(["/api/messages", "/api/chat", "/api/admin"], (req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
 app.use(express.static(path.join(__dirname, "public")));
 
 async function ensureJsonFile(filePath, defaultValue) {
@@ -175,6 +242,68 @@ async function updateJsonArray(filePath, updater) {
 
   await writeQueue;
   return result;
+}
+
+function hashSessionToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+async function createChatSession() {
+  return updateJsonArray(sessionStorePath, (sessions) => {
+    let token;
+    let tokenHash;
+
+    do {
+      token = crypto.randomBytes(32).toString("base64url");
+      tokenHash = hashSessionToken(token);
+    } while (sessions.some((session) => tokensMatch(session.tokenHash, tokenHash)));
+
+    const session = {
+      sessionId: crypto.randomUUID(),
+      tokenHash,
+      createdAt: new Date().toISOString(),
+    };
+    sessions.push(session);
+
+    return { sessionId: session.sessionId, sessionToken: token, isNew: true };
+  });
+}
+
+async function findChatSession(token) {
+  if (!token) {
+    return null;
+  }
+
+  const tokenHash = hashSessionToken(token);
+  const sessions = await readJson(sessionStorePath, []);
+  const session = sessions.find((item) => tokensMatch(item.tokenHash, tokenHash));
+  return session ? { sessionId: session.sessionId, isNew: false } : null;
+}
+
+function sendSessionUnauthorized(res) {
+  res.setHeader("WWW-Authenticate", 'Bearer realm="conversation"');
+  return res.status(401).json({
+    error: "A valid conversation credential is required.",
+  });
+}
+
+async function resolveChatSession(req) {
+  if (!req.get("authorization")) {
+    return createChatSession();
+  }
+
+  return findChatSession(getBearerToken(req));
+}
+
+async function requireChatSession(req, res, next) {
+  const session = await findChatSession(getBearerToken(req));
+
+  if (!session) {
+    return sendSessionUnauthorized(res);
+  }
+
+  req.chatSession = session;
+  return next();
 }
 
 async function getBusinessConfig() {
@@ -470,34 +599,38 @@ app.get("/api/config", async (req, res) => {
   res.json({ config });
 });
 
-app.get("/api/messages", async (req, res) => {
-  const sessionId = cleanText(req.query.sessionId);
+app.get("/api/messages", requireChatSession, async (req, res) => {
+  const sessionId = req.chatSession.sessionId;
   const [allMessages, allLeads] = await Promise.all([
     readJson(messageStorePath, []),
-    sessionId ? readJson(leadStorePath, []) : Promise.resolve([]),
+    readJson(leadStorePath, []),
   ]);
-  const filtered = sessionId
-    ? allMessages.filter((message) => message.sessionId === sessionId)
-    : allMessages.slice(-100);
-  const lead = sessionId
-    ? allLeads
-        .filter((item) => item.sessionId === sessionId && item.status !== "cancelled")
-        .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0] || null
-    : null;
+  const messages = allMessages
+    .filter((message) => message.sessionId === sessionId)
+    .slice(-50)
+    .map(({ id, role, content, createdAt }) => ({ id, role, content, createdAt }));
+  const leadCaptured = allLeads.some(
+    (lead) => lead.sessionId === sessionId && lead.status !== "cancelled"
+  );
 
   res.json({
-    messages: filtered.slice(-50),
-    lead,
+    messages,
+    leadCaptured,
   });
 });
 
 app.post("/api/chat", rateLimit("chat", chatRateLimitMax), async (req, res) => {
   const userMessage = cleanText(req.body?.message);
-  const sessionId = cleanText(req.body?.sessionId) || crypto.randomUUID();
 
   if (!userMessage) {
     return res.status(400).json({ error: "Message is required." });
   }
+
+  const chatSession = await resolveChatSession(req);
+  if (!chatSession) {
+    return sendSessionUnauthorized(res);
+  }
+  const { sessionId } = chatSession;
 
   const config = await getBusinessConfig();
   const userRecord = {
@@ -547,13 +680,16 @@ app.post("/api/chat", rateLimit("chat", chatRateLimitMax), async (req, res) => {
     res.json({
       reply,
       sessionId,
+      ...(chatSession.isNew ? { sessionToken: chatSession.sessionToken } : {}),
       model,
       mode: openai ? "openai" : "local-demo",
       leadCaptured: Boolean(lead),
-      lead,
     });
   } catch (error) {
-    console.error("Chat request failed:", error);
+    console.error(
+      "Chat request failed:",
+      error instanceof Error ? error.message : "Unknown chat error"
+    );
     res.status(500).json({
       error: "The chat request failed. Check your API key, model name, and terminal logs.",
     });

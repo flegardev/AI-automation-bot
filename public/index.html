@@ -36,7 +36,7 @@
               <p class="eyebrow">Customer Chat</p>
               <h2 id="chatTitle">Support Assistant</h2>
             </div>
-            <div class="status-pill" id="statusPill">
+            <div class="status-pill" id="statusPill" role="status" aria-live="polite">
               <span class="status-dot" aria-hidden="true"></span>
               <span id="statusText">Checking backend</span>
             </div>
@@ -64,7 +64,7 @@
               <span>Session <strong id="sessionLabel">New</strong></span>
               <span>Messages <strong id="messageCount">0</strong></span>
               <span>Model <strong id="modelName">-</strong></span>
-              <span id="leadStatus">No lead yet</span>
+              <span id="leadStatus" role="status" aria-live="polite">No lead yet</span>
             </div>
 
             <form class="composer" id="chatForm">

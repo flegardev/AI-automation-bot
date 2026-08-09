@@ -28,6 +28,7 @@ export default defineConfig({
       PORT: String(port),
       DATA_DIR: ".tmp/smokebomb-data",
       OPENAI_API_KEY: "",
+      ADMIN_TOKEN: "playwright-admin-token-0123456789",
       // The suite runs 4 viewport projects sequentially against one server from
       // a single IP; raise rate limits so the shared in-memory limiter doesn't
       // throttle later projects. (Rate limiting itself is verified separately.)

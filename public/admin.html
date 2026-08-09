@@ -17,11 +17,33 @@
           </div>
           <nav class="admin-actions" aria-label="Admin actions">
             <a href="/">Open Chat</a>
+            <button id="logoutButton" type="button" hidden>Lock</button>
             <button id="refreshButton" type="button">Refresh</button>
           </nav>
         </header>
 
-        <section class="stats-grid" aria-label="Dashboard stats">
+        <section class="admin-auth-panel" id="adminAuthPanel" aria-labelledby="adminAuthTitle">
+          <form class="admin-auth-form" id="adminLoginForm">
+            <div>
+              <h2 id="adminAuthTitle">Admin access</h2>
+              <p>Enter the server-side admin token. It is sent only in an authorization header.</p>
+            </div>
+            <label for="adminTokenInput">Admin token</label>
+            <div class="admin-auth-controls">
+              <input
+                id="adminTokenInput"
+                name="adminToken"
+                type="password"
+                autocomplete="current-password"
+                required
+              />
+              <button type="submit">Unlock dashboard</button>
+            </div>
+            <p id="adminLoginStatus" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section class="stats-grid" id="statsGrid" aria-label="Dashboard stats" hidden>
           <article class="stat-card">
             <span>Conversations</span>
             <strong id="conversationStat">0</strong>
@@ -42,7 +64,7 @@
 
         <p class="admin-alert" id="adminAlert" role="alert" hidden></p>
 
-        <section class="admin-content">
+        <section class="admin-content" id="adminContent" hidden>
           <section class="admin-section" aria-label="Conversations">
             <div class="section-heading">
               <h2>Conversations</h2>
@@ -60,6 +82,9 @@
             </div>
             <div class="table-wrap">
               <table>
+                <caption class="sr-only">
+                  Customer leads with contact details, request context, and follow-up status
+                </caption>
                 <thead>
                   <tr>
                     <th>Customer</th>
@@ -78,9 +103,9 @@
 
     <script src="/admin.js" type="module"></script>
     <footer class="site-credit">
-      <span>Made by FlegarTech</span>
-      <a href="https://paypal.me/TiniFlegar" target="_blank" rel="noopener noreferrer">
-        Support development
+      <span>Built by</span>
+      <a href="https://github.com/flegardev" target="_blank" rel="noopener noreferrer">
+        Tini Flegar
       </a>
     </footer>
   </body>

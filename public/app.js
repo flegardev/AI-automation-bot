@@ -17,14 +17,41 @@ const storeMeta = document.querySelector("#storeMeta");
 const leadStatus = document.querySelector("#leadStatus");
 const quickActionButtons = document.querySelectorAll("[data-prompt]");
 
-const sessionKey = "ai-commerce-session-id";
-let sessionId = localStorage.getItem(sessionKey) || crypto.randomUUID();
+const sessionIdKey = "ai-commerce-session-id";
+const sessionTokenKey = "ai-commerce-session-token";
+let sessionToken = localStorage.getItem(sessionTokenKey) || "";
+let sessionId = sessionToken ? localStorage.getItem(sessionIdKey) || "" : "";
 let messages = [];
 let isSending = false;
 let isTyping = false;
 let leadCaptured = false;
 
-localStorage.setItem(sessionKey, sessionId);
+if (!sessionToken) {
+  localStorage.removeItem(sessionIdKey);
+}
+
+function sessionHeaders(extra = {}) {
+  return sessionToken ? { ...extra, Authorization: `Bearer ${sessionToken}` } : { ...extra };
+}
+
+function saveSession(id, token) {
+  sessionId = id || sessionId;
+  sessionToken = token || sessionToken;
+
+  if (sessionId) {
+    localStorage.setItem(sessionIdKey, sessionId);
+  }
+  if (sessionToken) {
+    localStorage.setItem(sessionTokenKey, sessionToken);
+  }
+}
+
+function clearSession() {
+  sessionId = "";
+  sessionToken = "";
+  localStorage.removeItem(sessionIdKey);
+  localStorage.removeItem(sessionTokenKey);
+}
 
 function shortSession(id) {
   return id ? id.slice(0, 8) : "New";
@@ -197,13 +224,32 @@ async function loadHealth() {
 }
 
 async function loadSavedMessages() {
+  if (!sessionToken) {
+    renderMessages();
+    return;
+  }
+
   try {
-    const response = await fetch(`/api/messages?sessionId=${encodeURIComponent(sessionId)}`);
+    const response = await fetch("/api/messages", { headers: sessionHeaders() });
+
+    if (response.status === 401) {
+      clearSession();
+      messages = [];
+      leadCaptured = false;
+      leadStatus.textContent = "No lead yet";
+      renderMessages();
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error("Conversation history could not be loaded.");
+    }
+
     const data = await response.json();
     messages = Array.isArray(data.messages)
       ? data.messages.map(({ role, content }) => ({ role, content }))
       : [];
-    leadCaptured = Boolean(data.lead);
+    leadCaptured = Boolean(data.leadCaptured);
     leadStatus.textContent = leadCaptured ? "Lead saved" : "No lead yet";
     renderMessages();
   } catch {
@@ -221,11 +267,22 @@ async function sendMessage(message) {
   renderMessages();
 
   try {
-    const response = await fetch("/api/chat", {
+    let response = await fetch("/api/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, sessionId }),
+      headers: sessionHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ message }),
     });
+
+    // A server-side data reset invalidates old scoped credentials. Retry once
+    // without the stale credential; the rejected request cannot save a message.
+    if (response.status === 401 && sessionToken) {
+      clearSession();
+      response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+    }
 
     const data = await response.json();
 
@@ -233,8 +290,7 @@ async function sendMessage(message) {
       throw new Error(data.error || "Something went wrong.");
     }
 
-    sessionId = data.sessionId || sessionId;
-    localStorage.setItem(sessionKey, sessionId);
+    saveSession(data.sessionId, data.sessionToken);
     isTyping = false;
     addLocalMessage("assistant", data.reply);
     updateStats(data.model);
@@ -287,8 +343,7 @@ newChatButton.addEventListener("click", () => {
     return;
   }
 
-  sessionId = crypto.randomUUID();
-  localStorage.setItem(sessionKey, sessionId);
+  clearSession();
   messages = [];
   leadCaptured = false;
   leadStatus.textContent = "No lead yet";
