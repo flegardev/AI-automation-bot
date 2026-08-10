@@ -125,3 +125,11 @@ services.
 
 No open-source license has been selected. The package is marked `UNLICENSED`
 and is not intended for npm publication.
+
+
+## Portfolio & Source Rights
+
+This project is part of the [Tini Flegar Software Engineering Portfolio](https://github.com/flegardev/flegartech-site).
+
+The source code is publicly visible for portfolio review and demonstration. For usage terms and rights, please see [PORTFOLIO_USE.md](PORTFOLIO_USE.md).
+
