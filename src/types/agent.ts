@@ -28,7 +28,7 @@ export type CircuitBreakerState = z.infer<typeof CircuitBreakerStateSchema>;
  * Single step within an AI workflow pipeline
  */
 export const WorkflowStepSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().min(1),
   title: z.string().min(1),
   role: AgentRoleSchema,
   prompt: z.string().min(1),
@@ -45,7 +45,7 @@ export type WorkflowStep = z.infer<typeof WorkflowStepSchema>;
  * End-to-end multi-step workflow execution
  */
 export const WorkflowJobSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().min(1),
   title: z.string().min(1),
   description: z.string().optional(),
   steps: z.array(WorkflowStepSchema).min(1),
